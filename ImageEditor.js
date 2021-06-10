@@ -1,9 +1,10 @@
 import "./ImageEditor.css";
 import IconButton from "@material-ui/core/IconButton";
 import PhotoCamera from "@material-ui/icons/PhotoCamera";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
+import { Slider } from "antd";
 
 import { ReactSketchCanvas } from "react-sketch-canvas";
 
@@ -26,20 +27,17 @@ const useStyles = makeStyles((theme) => ({
 const ImageEditor = () => {
   const classes = useStyles();
 
-  const [profileImg, setProfileImg] = React.useState(
-    "https://lh3.googleusercontent.com/APENohQzs7YdTuY6fVUgptT7FLwCVqKj26oMNaeI-QuZefFQydgYtyt0Mes798DOVhuUKMIQKtL3Ic8ffQL6dBvB-Q=s2048"
-  );
-
   const [IsErase, setIsErase] = useState(false);
+  const [ImagePath, setImagePath] = useState(null);
+  const [color, setColor] = useState("#ff0000");
+  const [size, setSize] = useState(5);
+  const [sketchTime, setSketchTime] = useState(0);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [base64IsGenerate, setBase64IsGenerate] = useState(false);
 
   const imageHandler = (e) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.readyState === 2) {
-        setProfileImg(reader.result);
-      }
-    };
-    reader.readAsDataURL(e.target.files[0]);
+    let path = URL.createObjectURL(e.target.files[0]);
+    setImagePath(path);
   };
 
   let canvas = useRef();
@@ -54,6 +52,41 @@ const ImageEditor = () => {
     canvas.current.eraseMode(false);
   };
 
+  const selectBrushColor = (e) => {
+    setColor(e.target.value);
+  };
+
+  const SizeHandle = (value) => {
+    setSize(value);
+  };
+
+  const generateBase64 = () => {
+    canvas.current
+      .exportImage("png")
+      .then((data) => {
+        setImageBase64(data);
+        setBase64IsGenerate(true);
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+  };
+
+  useEffect(() => {
+    setInterval(() => {
+      canvas.current
+        .getSketchingTime()
+        .then((data) => {
+          setSketchTime(data);
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    }, 1000);
+  });
+
+  let imageSrc = `center / contain no-repeat url(${ImagePath})`;
+
   return (
     <>
       {/* ////////////////////////////////////////// */}
@@ -62,7 +95,7 @@ const ImageEditor = () => {
 
       <div
         style={{
-          height: "60px",
+          height: "80px",
           width: "100%",
           backgroundColor: "lightgray",
           display: "flex",
@@ -70,17 +103,16 @@ const ImageEditor = () => {
       >
         <div
           style={{
-            height: "60px",
-            width: "20%",
-            display: "flex",
+            width: "60%",
             alignItems: "center",
             paddingLeft: "20px",
+            paddingTop: "15px",
           }}
         >
           <Button
             onClick={eraseEnable}
             variant="contained"
-            disabled={IsErase == true}
+            disabled={IsErase === true}
           >
             Erase
           </Button>
@@ -88,7 +120,7 @@ const ImageEditor = () => {
           <Button
             onClick={brushEnable}
             variant="contained"
-            disabled={IsErase == false}
+            disabled={IsErase === false}
           >
             Brush
           </Button>
@@ -100,6 +132,18 @@ const ImageEditor = () => {
           <Button onClick={() => canvas.current.redo()} variant="contained">
             Redo
           </Button>
+          &nbsp;
+          {IsErase === false ? (
+            <>
+              <input type="color" onChange={selectBrushColor} value={color} />
+            </>
+          ) : null}
+          &nbsp;
+          <Slider
+            style={{ width: "15rem" }}
+            defaultValue={size}
+            onChange={SizeHandle}
+          />
         </div>
         <div
           style={{
@@ -110,9 +154,23 @@ const ImageEditor = () => {
             paddingRight: "10px",
           }}
         >
+          <Button
+            disabled={sketchTime === 0 && !ImagePath}
+            variant="contained"
+            onClick={generateBase64}
+          >
+            Generate Image
+          </Button>
+          &nbsp; &nbsp;
+          {base64IsGenerate === true ? (
+            <a href={imageBase64} download variant="contained">
+              Download Image
+            </a>
+          ) : null}
+          &nbsp; &nbsp;
           <input
             accept="image/*"
-            onChange={(e) => imageHandler(e)}
+            onChange={imageHandler}
             className={classes.input}
             id="icon-button-file"
             type="file"
@@ -142,11 +200,12 @@ const ImageEditor = () => {
             ref={canvas}
             width="100rem"
             height="40rem"
-            strokeWidth={14}
-            eraserWidth={14}
-            strokeColor="blue"
+            strokeWidth={size}
+            eraserWidth={size}
+            strokeColor={color}
             canvasColor="#d3d3d3"
-            background="no-repeat url(https://user-images.strikinglycdn.com/res/hrscywv4p/image/upload/c_limit,fl_lossy,h_630,w_1200,f_auto,q_auto/1303340/269612_158819.png)"
+            background={imageSrc}
+            withTimestamp={true}
           />
           {/* <img height="500px" width="600px" src={profileImg} alt={profileImg} /> */}
         </div>
